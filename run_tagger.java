@@ -11,7 +11,8 @@
 public class run_tagger {
 
     public static void main(String[] args) {
-        System.out.println("RUN COMMAND");
+        // Put test logic from build_tagger here ...
+        // Import tables from file instead from model object ...
     }
 }
 
