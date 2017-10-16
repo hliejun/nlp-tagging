@@ -18,7 +18,6 @@ enum Technique {LAPLACE, WITTENBELL, KNESERNEY}
 enum Type {WORD, TAG, BOTH}
 
 public class build_tagger {
-
     /**
      * This function will train a HMM model using training sentences,
      * select the optimal smoothing scheme for the trained model using
@@ -59,7 +58,6 @@ public class build_tagger {
         HashMap<String, Integer> tagFreqMatrix = posModel.getTagFreq();
         HashMap<String, Integer> wordTagFreqMatrix = posModel.getWordTagFreq();
         HashMap<String, Integer> prevCurrTagFreqMatrix = posModel.getPrevCurrTagFreq();
-
         // TODO: Write model attributes to modelFile
     }
 }
@@ -128,121 +126,42 @@ class FileHandler {
 class Model {
     private Technique smoothingMode = Technique.LAPLACE;
     private HashMap<String, Integer> wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq;
-    private HashMap<String, Double> emissionProbMatrix, transitionProbMatrix;
+    private HashMap<String, Double> transitionProbMatrix, emissionProbMatrix;
     private List<String> uniqueWords, uniqueTags;
+    private String startTag = "<s>";
+    private String separator = "/";
 
     public Model() {
         super();
     }
 
     public void train(List<String[]> trainingCorpus) {
-        tagFreq = new HashMap<String, Integer>();
-        wordFreq = new HashMap<String, Integer>();
-        wordTagFreq = new HashMap<String, Integer>();
-        prevCurrTagFreq = new HashMap<String, Integer>();
-        String prev = "";
-        String curr = "";
-        String[] currWordTag;
-        String prevWord, prevTag, currWord, currTag, prevCurrSymbol, wordTagSymbol;
-        for (String[] sentence : trainingCorpus) {
-            for (int index = 0; index < sentence.length; index++) {
-                curr = sentence[index];
-                currWordTag = splitElement(curr);
-                currWord = currWordTag[0];
-                if (wordFreq.get(currWord) == null) {
-                    wordFreq.put(currWord, 1);
-                } else {
-                    wordFreq.put(currWord, wordFreq.get(currWord) + 1);
-                }
-                if (wordTagFreq.get(curr) == null) {
-                    wordTagFreq.put(curr, 1);
-                } else {
-                    wordTagFreq.put(curr, wordTagFreq.get(curr) + 1);
-                }
-                currTag = currWordTag[1];
-                if (index == 0 && tagFreq.get("<s>") == null) {
-                    tagFreq.put("<s>", 1);
-                } else if (index == 0) {
-                    tagFreq.put("<s>", tagFreq.get("<s>") + 1);
-                }
-                if (tagFreq.get(currTag) == null) {
-                    tagFreq.put(currTag, 1);
-                } else {
-                    tagFreq.put(currTag, tagFreq.get(currTag) + 1);
-                }
-                if (index == 0) {
-                    prevTag = "<s>";
-                } else {
-                    prev = sentence[index - 1];
-                    prevTag = splitElement(prev)[1];
-                }
-                prevCurrSymbol = prevTag + "/" + currTag;
-                if (prevCurrTagFreq.get(prevCurrSymbol) == null) {
-                    prevCurrTagFreq.put(prevCurrSymbol, 1);
-                } else {
-                    prevCurrTagFreq.put(prevCurrSymbol, prevCurrTagFreq.get(prevCurrSymbol) + 1);
-                }
-            }
-        }
-        uniqueWords = new ArrayList<String>(wordFreq.keySet());
-        uniqueTags = new ArrayList<String>(tagFreq.keySet());
-        Collections.sort(uniqueWords);
-        Collections.sort(uniqueTags);
-        transitionProbMatrix = new HashMap<String, Double>();
-        emissionProbMatrix = new HashMap<String, Double>();
-        for (int row = 0; row < uniqueTags.size(); row++) {
-            currTag = uniqueTags.get(row);
-            for (int col = 0; col < uniqueTags.size(); col++) {
-                prevTag = uniqueTags.get(col);
-                prevCurrSymbol = prevTag + "/" + currTag;
-                Integer prevCurrCount = prevCurrTagFreq.get(prevCurrSymbol);
-                Integer prevTagCount = tagFreq.get(prevTag);
-                prevCurrCount = (prevCurrCount != null) ? prevCurrCount : 0;
-                prevTagCount = (prevTagCount != null) ? prevTagCount : 0;
-                transitionProbMatrix.put(prevCurrSymbol, (double)prevCurrCount / (double)prevTagCount);
-            }
-        }
-        for (int row = 0; row < uniqueWords.size(); row++) {
-            currWord = uniqueWords.get(row);
-            for (int col = 0; col < uniqueTags.size(); col++) {
-                currTag = uniqueTags.get(col);
-                wordTagSymbol = currWord + "/" + currTag;
-                Integer wordTagCount = wordTagFreq.get(wordTagSymbol);
-                Integer tagCount = tagFreq.get(currTag);
-                wordTagCount = (wordTagCount != null) ? wordTagCount : 0;
-                tagCount = (tagCount != null) ? tagCount : 0;
-                emissionProbMatrix.put(wordTagSymbol, (double)wordTagCount / (double)tagCount);
-            }
-        }
+        indexCorpus(trainingCorpus);
+        buildTransitionMatrix();
+        buildEmissionMatrix();
     }
 
     public double test(List<String[]> testCorpus, Technique smoothingScheme) {
-        int correct = 0;
-        int total = 0;
+        Set<String> testWords, seenWords, unseenWords;
+        HashMap<String, Integer> testWordsFreq;
+        int correct = 0, total = 0;
         SmoothScheme smoother = null;
         List<String[]> untaggedTestCorpus = getStrippedCorpus(testCorpus);
-        HashMap<String, Integer> uniqueWordsTested = new HashMap<String, Integer>();
-        for (String[] sentence : untaggedTestCorpus) {
-            for (String word : sentence) {
-                if (uniqueWordsTested.get(word) == null) {
-                    uniqueWordsTested.put(word, 1);
-                } else {
-                    uniqueWordsTested.put(word, uniqueWordsTested.get(word) + 1);
-                }
-            }
-        }
-        Set<String> uniqueTestWords = uniqueWordsTested.keySet();
-        Set<String> uniqueSeenWords = wordFreq.keySet();
-        Set<String> uniqueUnseenWords = new HashSet<String>(uniqueTestWords);
-        uniqueUnseenWords.removeAll(uniqueSeenWords);
         switch (smoothingScheme) {
             case LAPLACE:
                 smoother = new Laplace(wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq, 1);
                 break;
             case WITTENBELL:
-                int seen = uniqueSeenWords.size();
-                int unseen = uniqueUnseenWords.size();
-                smoother = new WittenBell(wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq, seen, unseen);
+                testWordsFreq = new HashMap<String, Integer>();
+                for (String[] sentence : untaggedTestCorpus) {
+                    for (String word : sentence) {
+                        incrementFreqTable(testWordsFreq, word);
+                    }
+                }
+                seenWords = wordFreq.keySet();
+                unseenWords = new HashSet<String>(testWordsFreq.keySet());
+                unseenWords.removeAll(seenWords);
+                smoother = new WittenBell(wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq, seenWords.size(), unseenWords.size());
                 break;
             default:
                 smoother = new Laplace(wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq, 1);
@@ -260,13 +179,13 @@ class Model {
                 for (int tagIndex = 0; tagIndex < uniqueTags.size(); tagIndex++) {
                     Double alpha, beta;
                     String currentTag = uniqueTags.get(tagIndex);
-                    if (currentTag == "<s>") {
+                    if (currentTag == startTag) {
                         continue;
                     } else if (wordIndex == 0) {
-                        alpha = transitionProbMatrix.get("<s>/" + currentTag);
-                        alpha = (alpha != null) ? alpha : smoother.getBigramTransition("<s>/" + currentTag);
-                        beta = emissionProbMatrix.get(currentWord + "/" + currentTag);
-                        beta = (beta != null) ? beta : smoother.getBigramEmission(currentWord + "/" + currentTag);
+                        alpha = transitionProbMatrix.get(startTag + separator + currentTag);
+                        alpha = (alpha != null) ? alpha : smoother.getBigramTransition(startTag, currentTag);
+                        beta = emissionProbMatrix.get(currentWord + separator + currentTag);
+                        beta = (beta != null) ? beta : smoother.getBigramEmission(currentWord, currentTag);
                         pathProbMatrix[tagIndex][wordIndex] = alpha * beta;
                         backpointerMatrix[tagIndex][wordIndex] = -1;
                     } else {
@@ -274,43 +193,43 @@ class Model {
                         maxPathValue = 0.0d;
                         for (int prevTagIndex = 0; prevTagIndex < uniqueTags.size(); prevTagIndex++) {
                             String prevTag = uniqueTags.get(prevTagIndex);
-                            alpha = transitionProbMatrix.get(prevTag + "/" + currentTag);
-                            alpha = (alpha != null) ? alpha : smoother.getBigramTransition(prevTag + "/" + currentTag);
+                            alpha = transitionProbMatrix.get(prevTag + separator + currentTag);
+                            alpha = (alpha != null) ? alpha : smoother.getBigramTransition(prevTag, currentTag);
                             double value = pathProbMatrix[prevTagIndex][wordIndex - 1] * alpha;
                             if (value >= maxPathValue) {
                                 maxPathValue = value;
                                 bestPrevTagIndex = prevTagIndex;
                             }
                         }
-                        beta = emissionProbMatrix.get(currentWord + "/" + currentTag);
-                        beta = (beta != null) ? beta : smoother.getBigramEmission(currentWord + "/" + currentTag);
+                        beta = emissionProbMatrix.get(currentWord + separator + currentTag);
+                        beta = (beta != null) ? beta : smoother.getBigramEmission(currentWord, currentTag);
                         pathProbMatrix[tagIndex][wordIndex] = maxPathValue * beta;
                         backpointerMatrix[tagIndex][wordIndex] = bestPrevTagIndex;
                     }
                 }
             }
-            int bestTagIndex = 0;
+            int bestEndIndex = 0;
             maxPathValue = 0.0d;
             for (int tagIndex = 0; tagIndex < uniqueTags.size(); tagIndex++) {
                 String tag = uniqueTags.get(tagIndex);
-                if (tag == "<s>") {
+                if (tag == startTag) {
                     continue;
                 }
                 double pathValue = pathProbMatrix[tagIndex][sentence.length - 1];
                 if (pathValue >= maxPathValue) {
                     maxPathValue = pathValue;
-                    bestTagIndex = tagIndex;
+                    bestEndIndex = tagIndex;
                 }
             }
             pathProbMatrix[uniqueTags.size()][sentence.length - 1] = maxPathValue;
-            backpointerMatrix[uniqueTags.size()][sentence.length - 1] = bestTagIndex;
-            int prevStateIndex = bestTagIndex;
+            backpointerMatrix[uniqueTags.size()][sentence.length - 1] = bestEndIndex;
+            int prevStateIndex = bestEndIndex;
             int prevSequenceIndex = sentence.length - 1;
             List<String> prediction = new ArrayList<String>();
             while (prevStateIndex != -1 && prevSequenceIndex >= 0) {
                 String tag = uniqueTags.get(prevStateIndex);
                 String word = sentence[prevSequenceIndex];
-                prediction.add(0, word + "/" + tag);
+                prediction.add(0, word + separator + tag);
                 prevStateIndex = backpointerMatrix[prevStateIndex][prevSequenceIndex];
                 prevSequenceIndex -= 1;
             }
@@ -325,10 +244,8 @@ class Model {
     }
 
     public void tune(List<String[]> testCorpus) {
-        Technique[] techniques = new Technique[1];
-        techniques[0] = Technique.LAPLACE;
-        double bestAccuracy = 0;
-        double currentAccuracy = 0;
+        Technique[] techniques = new Technique[]{Technique.LAPLACE, Technique.LAPLACE};
+        double currentAccuracy = 0, bestAccuracy = 0;
         for (Technique technique : techniques) {
             currentAccuracy = this.test(testCorpus, technique);
             if (currentAccuracy >= bestAccuracy) {
@@ -340,11 +257,32 @@ class Model {
         System.out.println("Best Accuracy: " + bestAccuracy * 100 + "%");
     }
 
-    public double crossValidate(List<String[]> trainingCorpus, int n) {
-
-        // TODO: Perform n-fold cross validation on training corpus
-
-        return 0;
+    public double crossValidate(List<String[]> corpus, int n) {
+        double averageAccuracy = 0;
+        if (n <= 0) {
+            System.err.println("Cross validation fold must be positive.");
+            return 0;
+        } else {
+            List<String[]> validationCorpus, trainingCorpus, remCorpus;
+            int intervalSize = (int)Math.ceil((double)corpus.size() / n);
+            Model cvModel = new Model();
+            for (int start = 0; start < corpus.size(); start += intervalSize) {
+                int end = start + intervalSize;
+                end = (end <= corpus.size()) ? end : corpus.size();
+                validationCorpus = new ArrayList<String[]>(corpus.subList(start, end));
+                trainingCorpus = (start == 0)
+                        ? new ArrayList<String[]>(corpus.subList(end, corpus.size()))
+                        : new ArrayList<String[]>(corpus.subList(0, start));
+                if (end < corpus.size()) {
+                    remCorpus = new ArrayList<String[]>(corpus.subList(end, corpus.size()));
+                    trainingCorpus.addAll(remCorpus);
+                }
+                cvModel.train(trainingCorpus);
+                double accuracy = cvModel.test(validationCorpus, this.getBestTechnique());
+                averageAccuracy += accuracy;
+            }
+            return averageAccuracy / n;
+        }
     }
 
     public Technique getBestTechnique() {
@@ -376,8 +314,9 @@ class Model {
     }
 
     private interface Smoothing {
-        public double getBigramTransition(String prevCurrTag);
-        public double getBigramEmission(String wordTag);
+        public double getBigramTransition(String prevTag, String currTag);
+        public double getBigramEmission(String word, String tag);
+        public double getUnknownWordBigramEmission(String wordTag, String prevWordTag);
     }
 
     private abstract class SmoothScheme implements Smoothing {
@@ -405,30 +344,16 @@ class Model {
             this.laplaceFactor = laplaceFactor;
         }
 
-        public double getBigramTransition(String prevCurrTag) {
-            String prevTag = splitElement(prevCurrTag)[0];
-            Integer prevCurrTagCount = prevCurrTagFreq.get(prevCurrTag);
-            prevCurrTagCount = (prevCurrTagCount != null) ? prevCurrTagCount : 0;
-            Integer prevTagCount = tagFreq.get(prevTag);
-            prevTagCount = (prevTagCount != null) ? prevTagCount : 0;
-            Integer uniqueTagCount = tagFreq.size();
-            uniqueTagCount = (uniqueTagCount != null) ? uniqueTagCount : 0;
-            return ((double)prevCurrTagCount + 1) / ((double)prevTagCount + (double)uniqueTagCount);
+        public double getBigramTransition(String prevTag, String currTag) {
+            return ((double)countPrevCurrTag(prevTag, currTag) + 1) / ((double)countTag(prevTag) + (double)tagFreq.size());
         }
 
-        public double getBigramEmission(String wordTag) {
-            Integer wordTagCount = wordTagFreq.get(wordTag);
-            wordTagCount = (wordTagCount != null) ? wordTagCount : 0;
-            Integer tagCount = tagFreq.get(splitElement(wordTag)[1]);
-            tagCount = (tagCount != null) ? tagCount : 0;
-            Integer uniqueTagCount = tagFreq.size();
-            uniqueTagCount = (uniqueTagCount != null) ? uniqueTagCount : 0;
-            return ((double)wordTagCount + 1) / ((double)tagCount + (double)uniqueTagCount);
+        public double getBigramEmission(String word, String tag) {
+            return ((double)countWordTag(word, tag) + 1) / ((double)countTag(tag) + (double)tagFreq.size());
         }
 
-        // KIV
         public double getUnknownWordBigramEmission(String wordTag, String prevWordTag) {
-            // P(word|tag) = P(word|tag) * P(capital-word|tag) * P(ending-hyph|tag)
+            // (KIV) TODO: P(word|tag) = P(word|tag) * P(capital-word|tag) * P(ending-hyph|tag)
             return 0;
         }
     }
@@ -442,23 +367,103 @@ class Model {
             this.unseen = unseen;
         }
 
-        // KIV
-        public double getBigramTransition(String prevCurrTag) {
+        public double getBigramTransition(String prevTag, String currTag) {
             //    (Seen tag)   : P(tag|prev-tag) = Count(prev-tag,tag) / [Count(prev-tag) + seen]
-            // -> (Unseen tag) : P(tag|prev-tag) = seen / {unseen * [Count(prev-tag) + seen]}
+            // TODO: -> (Unseen tag) : P(tag|prev-tag) = seen / {unseen * [Count(prev-tag) + seen]}
             return 0;
         }
 
-        public double getBigramEmission(String wordTag) {
+        public double getBigramEmission(String word, String tag) {
             // TODO: -> (Unseen word) : P(word|tag) = seen / {unseen * [Count(tag) + seen]}
             return 0;
         }
 
-        // KIV
         public double getUnknownWordBigramEmission(String wordTag, String prevWordTag) {
             // (Unseen tag) : P(word|tag) = seenTypes / {unseenTags * [Count(tag) + seenTags]}
-            // (Unseen word) : P(unknown-word|tag) = P(unknown-word|tag) * P(capital-word|tag) * P(ending-hyph|tag)
+            // (KIV) TODO: (Unseen word) : P(unknown-word|tag) = P(unknown-word|tag) * P(capital-word|tag) * P(ending-hyph|tag)
             return 0;
+        }
+    }
+
+    private class KneserNey extends SmoothScheme {
+
+        public KneserNey(HashMap<String, Integer> wordFreq, HashMap<String, Integer> tagFreq, HashMap<String, Integer> wordTagFreq, HashMap<String, Integer> prevCurrTagFreq) {
+            super(wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq);
+        }
+
+        public double getBigramTransition(String prevTag, String currTag) {
+            // TODO: Transition Probability
+            return 0;
+        }
+
+        public double getBigramEmission(String word, String tag) {
+            // TODO: Emission Probability
+            return 0;
+        }
+
+        public double getUnknownWordBigramEmission(String wordTag, String prevWordTag) {
+            // TODO: Unknown Word Probability
+            return 0;
+        }
+    }
+
+    private void indexCorpus(List<String[]> corpus) {
+        String prevWord, currWord, prevTag, currTag, prevCurrTag;
+        String[] currWordTag;
+        String prev = "", curr = "";
+        wordFreq = new HashMap<String, Integer>();
+        tagFreq = new HashMap<String, Integer>();
+        wordTagFreq = new HashMap<String, Integer>();
+        prevCurrTagFreq = new HashMap<String, Integer>();
+        for (String[] sentence : corpus) {
+            for (int index = 0; index < sentence.length; index++) {
+                curr = sentence[index];
+                currWordTag = splitElement(curr);
+                currWord = currWordTag[0];
+                currTag = currWordTag[1];
+                incrementFreqTable(wordFreq, currWord);
+                incrementFreqTable(tagFreq, currTag);
+                incrementFreqTable(wordTagFreq, curr);
+                if (index == 0) {
+                    incrementFreqTable(tagFreq, startTag);
+                    prevTag = startTag;
+                } else {
+                    prev = sentence[index - 1];
+                    prevTag = splitElement(prev)[1];
+                }
+                prevCurrTag = prevTag + separator + currTag;
+                incrementFreqTable(prevCurrTagFreq, prevCurrTag);
+            }
+        }
+        uniqueWords = new ArrayList<String>(wordFreq.keySet());
+        Collections.sort(uniqueWords);
+        uniqueTags = new ArrayList<String>(tagFreq.keySet());
+        Collections.sort(uniqueTags);
+    }
+
+    private void buildTransitionMatrix() {
+        String prevTag, currTag, prevCurrTag;
+        transitionProbMatrix = new HashMap<String, Double>();
+        for (int row = 0; row < uniqueTags.size(); row++) {
+            currTag = uniqueTags.get(row);
+            for (int col = 0; col < uniqueTags.size(); col++) {
+                prevTag = uniqueTags.get(col);
+                prevCurrTag = prevTag + separator + currTag;
+                transitionProbMatrix.put(prevCurrTag, (double)countPrevCurrTag(prevTag, currTag) / (double)countTag(prevTag));
+            }
+        }
+    }
+
+    private void buildEmissionMatrix() {
+        String currWord, currTag, wordTag;
+        emissionProbMatrix = new HashMap<String, Double>();
+        for (int row = 0; row < uniqueWords.size(); row++) {
+            currWord = uniqueWords.get(row);
+            for (int col = 0; col < uniqueTags.size(); col++) {
+                currTag = uniqueTags.get(col);
+                wordTag = currWord + separator + currTag;
+                emissionProbMatrix.put(wordTag, (double)countWordTag(currWord, currTag) / (double)countTag(currTag));
+            }
         }
     }
 
@@ -475,12 +480,38 @@ class Model {
     }
 
     private String[] splitElement(String element) {
-        int index = element.lastIndexOf("/");
+        int index = element.lastIndexOf(separator);
         String word = element.substring(0, index);
-        String tag = element.substring(index, element.length()).replace("/", "");
-        String[] splitString = new String[2];
-        splitString[0] = word;
-        splitString[1] = tag;
+        String tag = element.substring(index, element.length()).replace(separator, "");
+        String[] splitString = new String[]{word, tag};
         return splitString;
+    }
+
+    private int countWord(String word) {
+        Integer wordCount = wordFreq.get(word);
+        return (wordCount != null) ? (int)wordCount : 0;
+    }
+
+    private int countTag(String tag) {
+        Integer tagCount = tagFreq.get(tag);
+        return (tagCount != null) ? (int)tagCount : 0;
+    }
+
+    private int countWordTag(String word, String tag) {
+        String wordTag = word + separator + tag;
+        Integer wordTagCount = wordTagFreq.get(wordTag);
+        return (wordTagCount != null) ? (int)wordTagCount : 0;
+    }
+
+    private int countPrevCurrTag(String prevTag, String currTag) {
+        String prevCurrTag = prevTag + separator + currTag;
+        Integer prevCurrTagCount = prevCurrTagFreq.get(prevCurrTag);
+        return (prevCurrTagCount != null) ? (int)prevCurrTagCount : 0;
+    }
+
+    private void incrementFreqTable(HashMap<String, Integer> table, String key) {
+        Integer value = table.get(key);
+        value = (value != null) ? value + 1 : 1;
+        table.put(key, value);
     }
 }
