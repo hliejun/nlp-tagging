@@ -7,12 +7,29 @@
  * @version 1.0
  * @since 2017-10-08
  */
+import java.util.*;
 
 public class run_tagger {
 
     public static void main(String[] args) {
-        // Import tables from file ...
-        // Run test on testCorpus ...
+        FileHandler testFile, modelFile, outputFile = null;
+        List<String[]> testSents = null;
+        Model testModel = null;
+        if (args.length >= 3) {
+            testFile = new FileHandler(args[0]);
+            testFile.readFile();
+            testSents = testFile.getFileAsCorpus();
+            modelFile = new FileHandler(args[1]);
+            testModel = modelFile.readFileAsModel();
+            outputFile = new FileHandler(args[2]);
+        } else {
+            System.err.println("Incorrect number of parameters.");
+            System.exit(-1);
+        }
+        if (testModel != null) {
+            List<List<String>> taggedResult = testModel.tag(testSents);
+            System.out.println(taggedResult);
+        }
     }
 }
 
