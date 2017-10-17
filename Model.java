@@ -449,6 +449,6 @@ public class Model implements Serializable {
         separator = "/";
         entrySeparator = "@@@@";
         keyValueSeparator = "::::";
-        segmentSeparator = "\n\n\n\n";E
+        segmentSeparator = "\n\n\n\n";
     }
 }

@@ -86,4 +86,12 @@ public class FileHandler {
             e.printStackTrace();
         }
     }
+
+    public void writeFile(String output) {
+        try {
+            // something
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

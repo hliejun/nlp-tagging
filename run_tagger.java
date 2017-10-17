@@ -29,6 +29,8 @@ public class run_tagger {
         if (testModel != null) {
             List<List<String>> taggedResult = testModel.tag(testSents);
             System.out.println(taggedResult);
+            /* TODO: Join using stream map and collect */
+            /* TODO: Write string to output file */
         }
     }
 }
