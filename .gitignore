@@ -76,3 +76,5 @@ fabric.properties
 
 # Large training file
 model_file
+.model_file
+./model_file
