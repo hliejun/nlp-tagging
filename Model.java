@@ -1,6 +1,9 @@
 import java.io.*;
 import java.util.*;
 
+enum Technique {LAPLACE, WITTENBELL, KNESERNEY}
+enum Type {WORD, TAG, BOTH}
+
 public class Model implements Serializable {
     private Technique smoothingMode = Technique.LAPLACE;
     private HashMap<String, Integer> wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq;

@@ -1,2 +1,2 @@
-enum Technique {LAPLACE, WITTENBELL, KNESERNEY}
-enum Type {WORD, TAG, BOTH}
+//enum Technique {LAPLACE, WITTENBELL, KNESERNEY}
+//enum Type {WORD, TAG, BOTH}
