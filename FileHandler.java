@@ -1,3 +1,11 @@
+/**
+ * FileHandler is an auxillary class that reads and
+ * writes files in different required formats.
+ *
+ * @author Huang Lie Jun (A0123994W)
+ * @version 1.0
+ * @since 2017-10-08
+ */
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;

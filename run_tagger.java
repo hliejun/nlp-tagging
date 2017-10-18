@@ -10,7 +10,15 @@
 import java.util.*;
 
 public class run_tagger {
-
+    /**
+     * This function will deserialise a HMM model and perform tagging
+     * blindly on the given sentences. The resultant tagged sentences
+     * will be saved in the sents.out file.
+     *
+     * @param testFile File path to sentences to be tagged
+     * @param modelFile File path to serialised model
+     * @param outputFile File path to write tagged data
+     */
     public static void main(String[] args) {
         FileHandler testFile, modelFile, outputFile = null;
         List<String[]> testSents = null;
