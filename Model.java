@@ -7,7 +7,7 @@ enum Type {WORD, TAG, BOTH}
 public class Model implements Serializable {
     private Technique smoothingMode = Technique.LAPLACE;
     private HashMap<String, Integer> wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq;
-    private HashMap<String, float> transitionProbMatrix, emissionProbMatrix;
+    private HashMap<String, Float> transitionProbMatrix, emissionProbMatrix;
     private List<String> uniqueWords, uniqueTags;
     private List<List<String>> results;
     private String startTag, equate, separator, entrySeparator, keyValueSeparator, segmentSeparator;
@@ -178,11 +178,11 @@ public class Model implements Serializable {
         return this.smoothingMode;
     }
 
-    public HashMap<String, float> getTransitionProbMatrix() {
+    public HashMap<String, Float> getTransitionProbMatrix() {
         return this.transitionProbMatrix;
     }
 
-    public HashMap<String, float> getEmissionProbMatrix() {
+    public HashMap<String, Float> getEmissionProbMatrix() {
         return this.emissionProbMatrix;
     }
 
@@ -314,7 +314,7 @@ public class Model implements Serializable {
 
     private void buildTransitionMatrix() {
         String prevTag, currTag, prevCurrTag;
-        transitionProbMatrix = new HashMap<String, float>();
+        transitionProbMatrix = new HashMap<String, Float>();
         for (int row = 0; row < uniqueTags.size(); row++) {
             currTag = uniqueTags.get(row);
             for (int col = 0; col < uniqueTags.size(); col++) {
@@ -327,7 +327,7 @@ public class Model implements Serializable {
 
     private void buildEmissionMatrix() {
         String currWord, currTag, wordTag;
-        emissionProbMatrix = new HashMap<String, float>();
+        emissionProbMatrix = new HashMap<String, Float>();
         for (int row = 0; row < uniqueWords.size(); row++) {
             currWord = uniqueWords.get(row);
             for (int col = 0; col < uniqueTags.size(); col++) {
@@ -418,8 +418,8 @@ public class Model implements Serializable {
         tagFreq = (HashMap<String, Integer>) deserializer.readObject();
         wordTagFreq = (HashMap<String, Integer>) deserializer.readObject();
         prevCurrTagFreq = (HashMap<String, Integer>) deserializer.readObject();
-        transitionProbMatrix = (HashMap<String, float>) deserializer.readObject();
-        emissionProbMatrix = (HashMap<String, float>) deserializer.readObject();
+        transitionProbMatrix = (HashMap<String, Float>) deserializer.readObject();
+        emissionProbMatrix = (HashMap<String, Float>) deserializer.readObject();
         uniqueWords = (List<String>) deserializer.readObject();
         uniqueTags = (List<String>) deserializer.readObject();
         initConstants();
