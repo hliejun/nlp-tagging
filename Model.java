@@ -126,7 +126,7 @@ public class Model implements Serializable {
             }
             results.add(prediction);
         }
-        return isTagged ? ((float)correct / (float)total) : 0.0f;
+        return isTagged ? ((float)correct / total) : 0.0f;
     }
 
     public void tune(List<String[]> testCorpus) {
@@ -233,11 +233,11 @@ public class Model implements Serializable {
         }
 
         public float getBigramTransition(String prevTag, String currTag) {
-            return ((float)countPrevCurrTag(prevTag, currTag) + 1) / ((float)countTag(prevTag) + ((float)laplaceFactor * (float)tagFreq.size()));
+            return ((float)countPrevCurrTag(prevTag, currTag) + 1) / ((float)countTag(prevTag) + ((float)laplaceFactor * tagFreq.size()));
         }
 
         public float getBigramEmission(String word, String tag) {
-            return ((float)countWordTag(word, tag) + 1) / ((float)countTag(tag) + ((float)laplaceFactor * (float)tagFreq.size()));
+            return ((float)countWordTag(word, tag) + 1) / ((float)countTag(tag) + ((float)laplaceFactor * tagFreq.size()));
         }
     }
 
@@ -320,7 +320,7 @@ public class Model implements Serializable {
             for (int col = 0; col < uniqueTags.size(); col++) {
                 prevTag = uniqueTags.get(col);
                 prevCurrTag = prevTag + separator + currTag;
-                transitionProbMatrix.put(prevCurrTag, (float)countPrevCurrTag(prevTag, currTag) / (float)countTag(prevTag));
+                transitionProbMatrix.put(prevCurrTag, (float)countPrevCurrTag(prevTag, currTag) / countTag(prevTag));
             }
         }
     }
@@ -333,7 +333,7 @@ public class Model implements Serializable {
             for (int col = 0; col < uniqueTags.size(); col++) {
                 currTag = uniqueTags.get(col);
                 wordTag = currWord + separator + currTag;
-                emissionProbMatrix.put(wordTag, (float)countWordTag(currWord, currTag) / (float)countTag(currTag));
+                emissionProbMatrix.put(wordTag, (float)countWordTag(currWord, currTag) / countTag(currTag));
             }
         }
     }
