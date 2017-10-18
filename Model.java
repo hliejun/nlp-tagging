@@ -7,7 +7,7 @@ enum Type {WORD, TAG, BOTH}
 public class Model implements Serializable {
     private Technique smoothingMode = Technique.LAPLACE;
     private HashMap<String, Integer> wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq;
-    private HashMap<String, Double> transitionProbMatrix, emissionProbMatrix;
+    private HashMap<String, Float> transitionProbMatrix, emissionProbMatrix;
     private List<String> uniqueWords, uniqueTags;
     private List<List<String>> results;
     private String startTag, equate, separator, entrySeparator, keyValueSeparator, segmentSeparator;
@@ -23,7 +23,7 @@ public class Model implements Serializable {
         buildEmissionMatrix();
     }
 
-    public double test(List<String[]> testCorpus, Technique smoothingScheme, boolean isTagged) {
+    public float test(List<String[]> testCorpus, Technique smoothingScheme, boolean isTagged) {
         Set<String> testWords, seenWords, unseenWords;
         HashMap<String, Integer> testWordsFreq;
         int correct = 0, total = 0;
@@ -60,7 +60,7 @@ public class Model implements Serializable {
             for (int wordIndex = 0; wordIndex < sentence.length; wordIndex++) {
                 String currentWord = sentence[wordIndex];
                 for (int tagIndex = 0; tagIndex < uniqueTags.size(); tagIndex++) {
-                    Double alpha, beta;
+                    Float alpha, beta;
                     String currentTag = uniqueTags.get(tagIndex);
                     if (currentTag == startTag) {
                         continue;
@@ -73,7 +73,7 @@ public class Model implements Serializable {
                         backpointerMatrix[tagIndex][wordIndex] = -1;
                     } else {
                         bestPrevTagIndex = 0;
-                        maxPathValue = 0.0d;
+                        maxPathValue = 0.0f;
                         for (int prevTagIndex = 0; prevTagIndex < uniqueTags.size(); prevTagIndex++) {
                             String prevTag = uniqueTags.get(prevTagIndex);
                             alpha = transitionProbMatrix.get(prevTag + separator + currentTag);
@@ -92,7 +92,7 @@ public class Model implements Serializable {
                 }
             }
             int bestEndIndex = 0;
-            maxPathValue = 0.0d;
+            maxPathValue = 0.0f;
             for (int tagIndex = 0; tagIndex < uniqueTags.size(); tagIndex++) {
                 String tag = uniqueTags.get(tagIndex);
                 if (tag == startTag) {
@@ -126,12 +126,12 @@ public class Model implements Serializable {
             }
             results.add(prediction);
         }
-        return isTagged ? ((double)correct / (double)total) : 0.0d;
+        return isTagged ? ((float)correct / (float)total) : 0.0f;
     }
 
     public void tune(List<String[]> testCorpus) {
         Technique[] techniques = new Technique[]{Technique.LAPLACE, Technique.WITTENBELL};
-        double currentAccuracy = 0, bestAccuracy = 0;
+        float currentAccuracy = 0, bestAccuracy = 0;
         for (Technique technique : techniques) {
             currentAccuracy = this.test(testCorpus, technique, true);
             if (currentAccuracy >= bestAccuracy) {
@@ -141,14 +141,14 @@ public class Model implements Serializable {
         }
     }
 
-    public double crossValidate(List<String[]> corpus, int n) {
-        double averageAccuracy = 0;
+    public float crossValidate(List<String[]> corpus, int n) {
+        float averageAccuracy = 0;
         if (n <= 0) {
             System.err.println("Cross validation fold must be positive.");
             return 0;
         } else {
             List<String[]> validationCorpus, trainingCorpus, remCorpus;
-            int intervalSize = (int)Math.ceil((double)corpus.size() / n);
+            int intervalSize = (int)Math.ceil((float)corpus.size() / n);
             Model cvModel = new Model();
             for (int start = 0; start < corpus.size(); start += intervalSize) {
                 int end = start + intervalSize;
@@ -162,7 +162,7 @@ public class Model implements Serializable {
                     trainingCorpus.addAll(remCorpus);
                 }
                 cvModel.train(trainingCorpus);
-                double accuracy = cvModel.test(validationCorpus, this.getBestTechnique(), true);
+                float accuracy = cvModel.test(validationCorpus, this.getBestTechnique(), true);
                 averageAccuracy += accuracy;
             }
             return averageAccuracy / n;
@@ -178,11 +178,11 @@ public class Model implements Serializable {
         return this.smoothingMode;
     }
 
-    public HashMap<String, Double> getTransitionProbMatrix() {
+    public HashMap<String, Float> getTransitionProbMatrix() {
         return this.transitionProbMatrix;
     }
 
-    public HashMap<String, Double> getEmissionProbMatrix() {
+    public HashMap<String, Float> getEmissionProbMatrix() {
         return this.emissionProbMatrix;
     }
 
@@ -203,8 +203,8 @@ public class Model implements Serializable {
     }
 
     private interface Smoothing {
-        public double getBigramTransition(String prevTag, String currTag);
-        public double getBigramEmission(String word, String tag);
+        public float getBigramTransition(String prevTag, String currTag);
+        public float getBigramEmission(String word, String tag);
     }
 
     private abstract class SmoothScheme implements Smoothing {
@@ -232,12 +232,12 @@ public class Model implements Serializable {
             this.laplaceFactor = laplaceFactor;
         }
 
-        public double getBigramTransition(String prevTag, String currTag) {
-            return ((double)countPrevCurrTag(prevTag, currTag) + 1) / ((double)countTag(prevTag) + ((double)laplaceFactor * (double)tagFreq.size()));
+        public float getBigramTransition(String prevTag, String currTag) {
+            return ((float)countPrevCurrTag(prevTag, currTag) + 1) / ((float)countTag(prevTag) + ((float)laplaceFactor * (float)tagFreq.size()));
         }
 
-        public double getBigramEmission(String word, String tag) {
-            return ((double)countWordTag(word, tag) + 1) / ((double)countTag(tag) + ((double)laplaceFactor * (double)tagFreq.size()));
+        public float getBigramEmission(String word, String tag) {
+            return ((float)countWordTag(word, tag) + 1) / ((float)countTag(tag) + ((float)laplaceFactor * (float)tagFreq.size()));
         }
     }
 
@@ -250,12 +250,12 @@ public class Model implements Serializable {
             this.unseen = unseen;
         }
 
-        public double getBigramTransition(String prevTag, String currTag) {
-            return (double)seen / ((double)unseen * ((double)countTag(prevTag) + (double)seen));
+        public float getBigramTransition(String prevTag, String currTag) {
+            return (float)seen / ((float)unseen * ((float)countTag(prevTag) + (float)seen));
         }
 
-        public double getBigramEmission(String word, String tag) {
-            return (double)seen / ((double)unseen * ((double)countTag(tag) + (double)seen));
+        public float getBigramEmission(String word, String tag) {
+            return (float)seen / ((float)unseen * ((float)countTag(tag) + (float)seen));
         }
     }
 
@@ -265,13 +265,13 @@ public class Model implements Serializable {
             super(wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq);
         }
 
-        public double getBigramTransition(String prevTag, String currTag) {
+        public float getBigramTransition(String prevTag, String currTag) {
             // TODO: Transition Probability: P(tag|prev-tag) = alpha(prev-tag) x prev-count(prev-tag, tag) / sum(prev-count(prev-tag, all seen tags))
             // alpha(prev-tag) = [1 - sum(discounted_probability(all seen tags|prev-tag)] / [1 - sum(discounted_probability(all seen tags)]
             return 0;
         }
 
-        public double getBigramEmission(String word, String tag) {
+        public float getBigramEmission(String word, String tag) {
             // TODO: Emission Probability: P(word|tag) = alpha(tag) x prev-count(tag, word) / sum(prev-count(tag, all seen words))
             // alpha(prev-tag) = [1 - sum(discounted_probability(all seen words|tag)] / [1 - sum(discounted_probability(all seen words)]
             return 0;
@@ -314,26 +314,26 @@ public class Model implements Serializable {
 
     private void buildTransitionMatrix() {
         String prevTag, currTag, prevCurrTag;
-        transitionProbMatrix = new HashMap<String, Double>();
+        transitionProbMatrix = new HashMap<String, Float>();
         for (int row = 0; row < uniqueTags.size(); row++) {
             currTag = uniqueTags.get(row);
             for (int col = 0; col < uniqueTags.size(); col++) {
                 prevTag = uniqueTags.get(col);
                 prevCurrTag = prevTag + separator + currTag;
-                transitionProbMatrix.put(prevCurrTag, (double)countPrevCurrTag(prevTag, currTag) / (double)countTag(prevTag));
+                transitionProbMatrix.put(prevCurrTag, (float)countPrevCurrTag(prevTag, currTag) / (float)countTag(prevTag));
             }
         }
     }
 
     private void buildEmissionMatrix() {
         String currWord, currTag, wordTag;
-        emissionProbMatrix = new HashMap<String, Double>();
+        emissionProbMatrix = new HashMap<String, Float>();
         for (int row = 0; row < uniqueWords.size(); row++) {
             currWord = uniqueWords.get(row);
             for (int col = 0; col < uniqueTags.size(); col++) {
                 currTag = uniqueTags.get(col);
                 wordTag = currWord + separator + currTag;
-                emissionProbMatrix.put(wordTag, (double)countWordTag(currWord, currTag) / (double)countTag(currTag));
+                emissionProbMatrix.put(wordTag, (float)countWordTag(currWord, currTag) / (float)countTag(currTag));
             }
         }
     }
@@ -418,8 +418,8 @@ public class Model implements Serializable {
         tagFreq = (HashMap<String, Integer>) deserializer.readObject();
         wordTagFreq = (HashMap<String, Integer>) deserializer.readObject();
         prevCurrTagFreq = (HashMap<String, Integer>) deserializer.readObject();
-        transitionProbMatrix = (HashMap<String, Double>) deserializer.readObject();
-        emissionProbMatrix = (HashMap<String, Double>) deserializer.readObject();
+        transitionProbMatrix = (HashMap<String, Float>) deserializer.readObject();
+        emissionProbMatrix = (HashMap<String, Float>) deserializer.readObject();
         uniqueWords = (List<String>) deserializer.readObject();
         uniqueTags = (List<String>) deserializer.readObject();
         initConstants();
