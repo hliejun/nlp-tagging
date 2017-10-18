@@ -66,9 +66,11 @@ public class Model implements Serializable {
                         continue;
                     } else if (wordIndex == 0) {
                         alpha = transitionProbMatrix.get(startTag + separator + currentTag);
-                        alpha = (alpha != null) ? alpha : smoother.getBigramTransition(startTag, currentTag);
+                        alpha = (alpha != null) ? alpha : 0.0f;
                         beta = emissionProbMatrix.get(currentWord + separator + currentTag);
-                        beta = (beta != null) ? beta : smoother.getBigramEmission(currentWord, currentTag);
+                        beta = (beta != null) ? beta : (countWord(currentWord) == 0)
+                            ? smoother.getBigramEmission(currentWord, currentTag)
+                            : 0.0f;
                         pathProbMatrix[tagIndex][wordIndex] = alpha * beta;
                         backpointerMatrix[tagIndex][wordIndex] = -1;
                     } else {
@@ -77,7 +79,7 @@ public class Model implements Serializable {
                         for (int prevTagIndex = 0; prevTagIndex < uniqueTags.size(); prevTagIndex++) {
                             String prevTag = uniqueTags.get(prevTagIndex);
                             alpha = transitionProbMatrix.get(prevTag + separator + currentTag);
-                            alpha = (alpha != null) ? alpha : smoother.getBigramTransition(prevTag, currentTag);
+                            alpha = (alpha != null) ? alpha : 0.0f;
                             double value = pathProbMatrix[prevTagIndex][wordIndex - 1] * alpha;
                             if (value >= maxPathValue) {
                                 maxPathValue = value;
@@ -85,7 +87,9 @@ public class Model implements Serializable {
                             }
                         }
                         beta = emissionProbMatrix.get(currentWord + separator + currentTag);
-                        beta = (beta != null) ? beta : smoother.getBigramEmission(currentWord, currentTag);
+                        beta = (beta != null) ? beta : (countWord(currentWord) == 0)
+                                ? smoother.getBigramEmission(currentWord, currentTag)
+                                : 0.0f;
                         pathProbMatrix[tagIndex][wordIndex] = maxPathValue * beta;
                         backpointerMatrix[tagIndex][wordIndex] = bestPrevTagIndex;
                     }
@@ -320,7 +324,10 @@ public class Model implements Serializable {
             for (int col = 0; col < uniqueTags.size(); col++) {
                 prevTag = uniqueTags.get(col);
                 prevCurrTag = prevTag + separator + currTag;
-                transitionProbMatrix.put(prevCurrTag, (float)countPrevCurrTag(prevTag, currTag) / countTag(prevTag));
+                float probability = (float)countPrevCurrTag(prevTag, currTag) / countTag(prevTag);
+                if (probability > 0) {
+                    transitionProbMatrix.put(prevCurrTag, probability);
+                }
             }
         }
     }
@@ -333,7 +340,10 @@ public class Model implements Serializable {
             for (int col = 0; col < uniqueTags.size(); col++) {
                 currTag = uniqueTags.get(col);
                 wordTag = currWord + separator + currTag;
-                emissionProbMatrix.put(wordTag, (float)countWordTag(currWord, currTag) / countTag(currTag));
+                float probability = (float)countWordTag(currWord, currTag) / countTag(currTag);
+                if (probability > 0) {
+                    emissionProbMatrix.put(wordTag, probability);
+                }
             }
         }
     }

@@ -40,8 +40,8 @@ public class build_tagger {
         Model posModel = new Model();
         posModel.train(trainCorpus);
         posModel.tune(devCorpus);
-//        float validatedAccuracy = posModel.crossValidate(trainCorpus, 10);
-//        System.out.println("Cross-validation accuracy of trained model: " + (validatedAccuracy * 100) + "%");
+        float validatedAccuracy = posModel.crossValidate(trainCorpus, 10);
+        System.out.println("Cross-validation accuracy of trained model: " + (validatedAccuracy * 100) + "%");
         if (modelFile != null) {
             modelFile.writeFile(posModel);
         }
