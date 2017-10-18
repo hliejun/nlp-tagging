@@ -26,11 +26,15 @@ public class run_tagger {
             System.err.println("Incorrect number of parameters.");
             System.exit(-1);
         }
-        if (testModel != null) {
+        if (testModel != null && outputFile != null) {
             List<List<String>> taggedResult = testModel.tag(testSents);
-            System.out.println(taggedResult);
-            /* TODO: Join using stream map and collect */
-            /* TODO: Write string to output file */
+            List<String> taggedSentences = new ArrayList<String>();
+            for (int i = 0; i < taggedResult.size(); i++) {
+                String sentence = String.join(" ", taggedResult.get(i));
+                taggedSentences.add(sentence);
+            }
+            String taggedCorpus = String.join("\n", taggedSentences);
+            outputFile.writeFile(taggedCorpus);
         }
     }
 }

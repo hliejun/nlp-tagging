@@ -20,12 +20,12 @@ public class Model implements Serializable {
         buildEmissionMatrix();
     }
 
-    public double test(List<String[]> testCorpus, Technique smoothingScheme, boolean isActual) {
+    public double test(List<String[]> testCorpus, Technique smoothingScheme, boolean isTagged) {
         Set<String> testWords, seenWords, unseenWords;
         HashMap<String, Integer> testWordsFreq;
         int correct = 0, total = 0;
         SmoothScheme smoother = null;
-        List<String[]> untaggedTestCorpus = isActual ? testCorpus : getStrippedCorpus(testCorpus);
+        List<String[]> untaggedTestCorpus = isTagged ? getStrippedCorpus(testCorpus) : testCorpus;
         switch (smoothingScheme) {
             case LAPLACE:
                 smoother = new Laplace(wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq, 1);
@@ -113,7 +113,7 @@ public class Model implements Serializable {
                 prevStateIndex = backpointerMatrix[prevStateIndex][prevSequenceIndex];
                 prevSequenceIndex -= 1;
             }
-            if (!isActual) {
+            if (isTagged) {
                 for (int predictionIndex = 0; predictionIndex < prediction.size(); predictionIndex++) {
                     if (prediction.get(predictionIndex).equals(taggedSentence[predictionIndex])) {
                         correct += 1;
@@ -123,24 +123,21 @@ public class Model implements Serializable {
             }
             results.add(prediction);
         }
-        return isActual ? 0.0d : ((double)correct / (double)total);
+        return isTagged ? ((double)correct / (double)total) : 0.0d;
     }
 
     public void tune(List<String[]> testCorpus) {
-        Technique[] techniques = new Technique[]{Technique.LAPLACE, Technique.LAPLACE};
+        Technique[] techniques = new Technique[]{Technique.LAPLACE, Technique.WITTENBELL};
         double currentAccuracy = 0, bestAccuracy = 0;
         for (Technique technique : techniques) {
-            currentAccuracy = this.test(testCorpus, technique, false);
+            currentAccuracy = this.test(testCorpus, technique, true);
             if (currentAccuracy >= bestAccuracy) {
                 bestAccuracy = currentAccuracy;
                 this.smoothingMode = technique;
             }
         }
-        System.out.println("Best Technique: " + this.smoothingMode);
-        System.out.println("Best Accuracy: " + bestAccuracy * 100 + "%");
     }
 
-    // LAPLACE = 93.75386213258074%; WITTENBELL = ???
     public double crossValidate(List<String[]> corpus, int n) {
         double averageAccuracy = 0;
         if (n <= 0) {
@@ -162,7 +159,7 @@ public class Model implements Serializable {
                     trainingCorpus.addAll(remCorpus);
                 }
                 cvModel.train(trainingCorpus);
-                double accuracy = cvModel.test(validationCorpus, this.getBestTechnique(), false);
+                double accuracy = cvModel.test(validationCorpus, this.getBestTechnique(), true);
                 averageAccuracy += accuracy;
             }
             return averageAccuracy / n;
@@ -170,7 +167,7 @@ public class Model implements Serializable {
     }
 
     public List<List<String>> tag(List<String[]> corpus) {
-        test(corpus, smoothingMode, true);
+        test(corpus, smoothingMode, false);
         return results;
     }
 
@@ -205,7 +202,6 @@ public class Model implements Serializable {
     private interface Smoothing {
         public double getBigramTransition(String prevTag, String currTag);
         public double getBigramEmission(String word, String tag);
-        public double getUnknownWordBigramEmission(String wordTag, String prevWordTag);
     }
 
     private abstract class SmoothScheme implements Smoothing {
@@ -234,16 +230,11 @@ public class Model implements Serializable {
         }
 
         public double getBigramTransition(String prevTag, String currTag) {
-            return ((double)countPrevCurrTag(prevTag, currTag) + 1) / ((double)countTag(prevTag) + (double)tagFreq.size());
+            return ((double)countPrevCurrTag(prevTag, currTag) + 1) / ((double)countTag(prevTag) + ((double)laplaceFactor * (double)tagFreq.size()));
         }
 
         public double getBigramEmission(String word, String tag) {
-            return ((double)countWordTag(word, tag) + 1) / ((double)countTag(tag) + (double)tagFreq.size());
-        }
-
-        public double getUnknownWordBigramEmission(String wordTag, String prevWordTag) {
-            // (KIV) TODO: P(word|tag) = P(word|tag) * P(capital-word|tag) * P(ending-hyph|tag)
-            return 0;
+            return ((double)countWordTag(word, tag) + 1) / ((double)countTag(tag) + ((double)laplaceFactor * (double)tagFreq.size()));
         }
     }
 
@@ -257,20 +248,11 @@ public class Model implements Serializable {
         }
 
         public double getBigramTransition(String prevTag, String currTag) {
-            //    (Seen tag)   : P(tag|prev-tag) = Count(prev-tag,tag) / [Count(prev-tag) + seen]
-            // TODO: -> (Unseen tag) : P(tag|prev-tag) = seen / {unseen * [Count(prev-tag) + seen]}
-            return 0;
+            return (double)seen / ((double)unseen * ((double)countTag(prevTag) + (double)seen));
         }
 
         public double getBigramEmission(String word, String tag) {
-            // TODO: -> (Unseen word) : P(word|tag) = seen / {unseen * [Count(tag) + seen]}
-            return 0;
-        }
-
-        public double getUnknownWordBigramEmission(String wordTag, String prevWordTag) {
-            // (Unseen tag) : P(word|tag) = seenTypes / {unseenTags * [Count(tag) + seenTags]}
-            // (KIV) TODO: (Unseen word) : P(unknown-word|tag) = P(unknown-word|tag) * P(capital-word|tag) * P(ending-hyph|tag)
-            return 0;
+            return (double)seen / ((double)unseen * ((double)countTag(tag) + (double)seen));
         }
     }
 
@@ -281,17 +263,14 @@ public class Model implements Serializable {
         }
 
         public double getBigramTransition(String prevTag, String currTag) {
-            // TODO: Transition Probability
+            // TODO: Transition Probability: P(tag|prev-tag) = alpha(prev-tag) x prev-count(prev-tag, tag) / sum(prev-count(prev-tag, all seen tags))
+            // alpha(prev-tag) = [1 - sum(discounted_probability(all seen tags|prev-tag)] / [1 - sum(discounted_probability(all seen tags)]
             return 0;
         }
 
         public double getBigramEmission(String word, String tag) {
-            // TODO: Emission Probability
-            return 0;
-        }
-
-        public double getUnknownWordBigramEmission(String wordTag, String prevWordTag) {
-            // TODO: Unknown Word Probability
+            // TODO: Emission Probability: P(word|tag) = alpha(tag) x prev-count(tag, word) / sum(prev-count(tag, all seen words))
+            // alpha(prev-tag) = [1 - sum(discounted_probability(all seen words|tag)] / [1 - sum(discounted_probability(all seen words)]
             return 0;
         }
     }

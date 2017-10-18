@@ -89,7 +89,8 @@ public class FileHandler {
 
     public void writeFile(String output) {
         try {
-            // something
+            byte[] newFileData = output.getBytes("utf-8");
+            Files.write(filePath, newFileData, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception e) {
             e.printStackTrace();
         }
