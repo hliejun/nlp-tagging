@@ -62,7 +62,7 @@ public class FileHandler {
     public String[] getFileAsSentences() {
         if (existingFileData != null) {
             String linesString = new String(existingFileData);
-            return linesString.split("[\\r?\\n]+");
+            return linesString.split("\\n+");
         } else {
             return null;
         }
