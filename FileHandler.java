@@ -71,10 +71,10 @@ public class FileHandler {
     public List<String[]> getFileAsCorpus() {
         if (existingFileData != null) {
             String linesString = new String(existingFileData);
-            String[] sentences = linesString.split("[\\r?\\n]+");
+            String[] sentences = linesString.split("\\n+");
             List<String[]> corpus = new ArrayList<String[]>();
             for (String sentence : sentences) {
-                corpus.add(sentence.split(" "));
+                corpus.add(sentence.split(" +"));
             }
             return corpus;
         } else {

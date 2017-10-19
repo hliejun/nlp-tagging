@@ -22,7 +22,7 @@ public class Model implements Serializable {
     private HashMap<String, Float> transitionProbMatrix, emissionProbMatrix;
     private List<String> uniqueWords, uniqueTags;
     private List<List<String>> results;
-    private String startTag, equate, separator, entrySeparator, keyValueSeparator, segmentSeparator;
+    private String startTag, separator;
 
     public Model() {
         super();
@@ -514,11 +514,7 @@ public class Model implements Serializable {
 
     private void initConstants() {
         startTag = "<s>";
-        equate = "====";
         separator = "/";
-        entrySeparator = "@@@@";
-        keyValueSeparator = "::::";
-        segmentSeparator = "\n\n\n\n";
     }
 
     /*** Serializable Methods ***/
