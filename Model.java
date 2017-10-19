@@ -161,9 +161,6 @@ public class Model implements Serializable {
                     total += 1;
                 }
             }
-            if (sentence.length != prediction.size()) {
-                System.out.println("GG at #" + sentenceIndex + ": sentence: " + sentence.length + " prediction: " + prediction.size());
-            }
             results.add(prediction);
         }
         return isTagged ? ((float)correct / total) : 0.0f;
