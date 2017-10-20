@@ -1,3 +1,11 @@
+/**
+ * FileHandler is an auxillary class that reads and
+ * writes files in different required formats.
+ *
+ * @author Huang Lie Jun (A0123994W)
+ * @version 1.0
+ * @since 2017-10-08
+ */
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -54,7 +62,7 @@ public class FileHandler {
     public String[] getFileAsSentences() {
         if (existingFileData != null) {
             String linesString = new String(existingFileData);
-            return linesString.split("[\\r?\\n]+");
+            return linesString.split("\\n+");
         } else {
             return null;
         }
@@ -63,10 +71,10 @@ public class FileHandler {
     public List<String[]> getFileAsCorpus() {
         if (existingFileData != null) {
             String linesString = new String(existingFileData);
-            String[] sentences = linesString.split("[\\r?\\n]+");
+            String[] sentences = linesString.split("\\n+");
             List<String[]> corpus = new ArrayList<String[]>();
             for (String sentence : sentences) {
-                corpus.add(sentence.split(" "));
+                corpus.add(sentence.split(" +"));
             }
             return corpus;
         } else {

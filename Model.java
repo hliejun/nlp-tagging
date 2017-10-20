@@ -1,6 +1,18 @@
+/**
+ * Model encapsulates the state of the POS model with
+ * the methods that the model can be utilised for.
+ * This class is serialisable.
+ *
+ * @author Huang Lie Jun (A0123994W)
+ * @version 1.0
+ * @since 2017-10-08
+ */
 import java.io.*;
 import java.util.*;
 
+/**
+ * Enumerated types for labelling smoothing techniques
+ */
 enum Technique {LAPLACE, WITTENBELL, KNESERNEY}
 enum Type {WORD, TAG, BOTH}
 
@@ -10,19 +22,40 @@ public class Model implements Serializable {
     private HashMap<String, Float> transitionProbMatrix, emissionProbMatrix;
     private List<String> uniqueWords, uniqueTags;
     private List<List<String>> results;
-    private String startTag, equate, separator, entrySeparator, keyValueSeparator, segmentSeparator;
+    private String startTag, separator;
 
     public Model() {
         super();
         initConstants();
     }
 
+    /**
+     * This method constructs the model frequency tables
+     * from the training corpus and calculates the
+     * transition and emission probabilities of seen words
+     * and tags.
+     *
+     * @param trainingCorpus
+     */
     public void train(List<String[]> trainingCorpus) {
         indexCorpus(trainingCorpus);
         buildTransitionMatrix();
         buildEmissionMatrix();
     }
 
+    /**
+     * This method applies the Viterbi algorithm on a
+     * test corpus, and applies the smoothing scheme
+     * on unknown words. If the test corpus is tagged,
+     * it will assess the accuracy of tagging and return
+     * the accuracy. Otherwise, it will return 0.
+     *
+     * @param testCorpus
+     * @param smoothingScheme
+     * @param isTagged
+     *
+     * @return float
+     */
     public float test(List<String[]> testCorpus, Technique smoothingScheme, boolean isTagged) {
         Set<String> testWords, seenWords, unseenWords;
         HashMap<String, Integer> testWordsFreq;
@@ -66,9 +99,11 @@ public class Model implements Serializable {
                         continue;
                     } else if (wordIndex == 0) {
                         alpha = transitionProbMatrix.get(startTag + separator + currentTag);
-                        alpha = (alpha != null) ? alpha : smoother.getBigramTransition(startTag, currentTag);
+                        alpha = (alpha != null) ? alpha : 0.0f;
                         beta = emissionProbMatrix.get(currentWord + separator + currentTag);
-                        beta = (beta != null) ? beta : smoother.getBigramEmission(currentWord, currentTag);
+                        beta = (beta != null) ? beta : (countWord(currentWord) == 0)
+                            ? smoother.getBigramEmission(currentWord, currentTag)
+                            : 0.0f;
                         pathProbMatrix[tagIndex][wordIndex] = alpha * beta;
                         backpointerMatrix[tagIndex][wordIndex] = -1;
                     } else {
@@ -77,7 +112,7 @@ public class Model implements Serializable {
                         for (int prevTagIndex = 0; prevTagIndex < uniqueTags.size(); prevTagIndex++) {
                             String prevTag = uniqueTags.get(prevTagIndex);
                             alpha = transitionProbMatrix.get(prevTag + separator + currentTag);
-                            alpha = (alpha != null) ? alpha : smoother.getBigramTransition(prevTag, currentTag);
+                            alpha = (alpha != null) ? alpha : 0.0f;
                             double value = pathProbMatrix[prevTagIndex][wordIndex - 1] * alpha;
                             if (value >= maxPathValue) {
                                 maxPathValue = value;
@@ -85,7 +120,9 @@ public class Model implements Serializable {
                             }
                         }
                         beta = emissionProbMatrix.get(currentWord + separator + currentTag);
-                        beta = (beta != null) ? beta : smoother.getBigramEmission(currentWord, currentTag);
+                        beta = (beta != null) ? beta : (countWord(currentWord) == 0)
+                                ? smoother.getBigramEmission(currentWord, currentTag)
+                                : 0.0f;
                         pathProbMatrix[tagIndex][wordIndex] = maxPathValue * beta;
                         backpointerMatrix[tagIndex][wordIndex] = bestPrevTagIndex;
                     }
@@ -129,6 +166,13 @@ public class Model implements Serializable {
         return isTagged ? ((float)correct / total) : 0.0f;
     }
 
+    /**
+     * This method will run tests on the test corpus
+     * with different smoothing techniques and select
+     * the optimal technique for actual tagging.
+     *
+     * @param testCorpus
+     */
     public void tune(List<String[]> testCorpus) {
         Technique[] techniques = new Technique[]{Technique.LAPLACE, Technique.WITTENBELL};
         float currentAccuracy = 0, bestAccuracy = 0;
@@ -141,6 +185,18 @@ public class Model implements Serializable {
         }
     }
 
+    /**
+     * This method will perform n-fold cross-validation
+     * on the corpus provided. n segments will be partitioned
+     * and prior to validating every segment, training will
+     * be conducted on the remaining sentences in the corpus.
+     * The accuracies obtained will be averaged and returned.
+     *
+     * @param corpus
+     * @param n
+     *
+     * @return float
+     */
     public float crossValidate(List<String[]> corpus, int n) {
         float averageAccuracy = 0;
         if (n <= 0) {
@@ -169,10 +225,21 @@ public class Model implements Serializable {
         }
     }
 
+    /**
+     * This method applies actual tagging on the given untagged
+     * corpus, using the trained and tuned paramters of the model.
+     * The tagged result will be returned.
+     *
+     * @param corpus
+     *
+     * @return List
+     */
     public List<List<String>> tag(List<String[]> corpus) {
         test(corpus, smoothingMode, false);
         return results;
     }
+
+    /*** Accessors ***/
 
     public Technique getBestTechnique() {
         return this.smoothingMode;
@@ -202,11 +269,21 @@ public class Model implements Serializable {
         return this.prevCurrTagFreq;
     }
 
+    /**
+     * This interface specifies the required common
+     * methods across all smoothing techniques.
+     */
     private interface Smoothing {
         public float getBigramTransition(String prevTag, String currTag);
         public float getBigramEmission(String word, String tag);
     }
 
+    /**
+     * This abstract class is the parent class of all
+     * smoothing techniques. It constructs each smoothing
+     * scheme with the required frequency tables provided
+     * by the model.
+     */
     private abstract class SmoothScheme implements Smoothing {
         private HashMap<String, Integer> wordFreq, tagFreq, wordTagFreq, prevCurrTagFreq;
 
@@ -219,6 +296,10 @@ public class Model implements Serializable {
         }
     }
 
+    /**
+     * The Laplace class implements the smoothing methods
+     * with the Laplace smoothing technique, given the Laplace factor.
+     */
     private class Laplace extends SmoothScheme {
         int laplaceFactor;
 
@@ -241,6 +322,11 @@ public class Model implements Serializable {
         }
     }
 
+    /**
+     * The WittenBell class implements the smoothing methods
+     * with the Witten Bell smoothing technique, given seen and unseen
+     * word count.
+     */
     private class WittenBell extends SmoothScheme {
         int seen, unseen;
 
@@ -259,6 +345,7 @@ public class Model implements Serializable {
         }
     }
 
+    // Kneser Ney Smoothing is shelved due to time constraint
     private class KneserNey extends SmoothScheme {
 
         public KneserNey(HashMap<String, Integer> wordFreq, HashMap<String, Integer> tagFreq, HashMap<String, Integer> wordTagFreq, HashMap<String, Integer> prevCurrTagFreq) {
@@ -278,6 +365,12 @@ public class Model implements Serializable {
         }
     }
 
+    /**
+     * This method creates the word and tag frequency tables
+     * based on the provided corpus.
+     *
+     * @param corpus
+     */
     private void indexCorpus(List<String[]> corpus) {
         String prevWord, currWord, prevTag, currTag, prevCurrTag;
         String[] currWordTag;
@@ -312,6 +405,10 @@ public class Model implements Serializable {
         Collections.sort(uniqueTags);
     }
 
+    /**
+     * This method creates the transition probability matrix
+     * prior to any testing or tuning.
+     */
     private void buildTransitionMatrix() {
         String prevTag, currTag, prevCurrTag;
         transitionProbMatrix = new HashMap<String, Float>();
@@ -320,11 +417,18 @@ public class Model implements Serializable {
             for (int col = 0; col < uniqueTags.size(); col++) {
                 prevTag = uniqueTags.get(col);
                 prevCurrTag = prevTag + separator + currTag;
-                transitionProbMatrix.put(prevCurrTag, (float)countPrevCurrTag(prevTag, currTag) / countTag(prevTag));
+                float probability = (float)countPrevCurrTag(prevTag, currTag) / countTag(prevTag);
+                if (probability > 0) {
+                    transitionProbMatrix.put(prevCurrTag, probability);
+                }
             }
         }
     }
 
+    /**
+     * This method creates the emission probability matrix
+     * prior to any testing or tuning.
+     */
     private void buildEmissionMatrix() {
         String currWord, currTag, wordTag;
         emissionProbMatrix = new HashMap<String, Float>();
@@ -333,11 +437,23 @@ public class Model implements Serializable {
             for (int col = 0; col < uniqueTags.size(); col++) {
                 currTag = uniqueTags.get(col);
                 wordTag = currWord + separator + currTag;
-                emissionProbMatrix.put(wordTag, (float)countWordTag(currWord, currTag) / countTag(currTag));
+                float probability = (float)countWordTag(currWord, currTag) / countTag(currTag);
+                if (probability > 0) {
+                    emissionProbMatrix.put(wordTag, probability);
+                }
             }
         }
     }
 
+    /**
+     * This helper method removes the tags from a tagged corpus
+     * for testing and rating purposes. It returns the untagged
+     * version of the corpus.
+     *
+     * @param taggedCorpus
+     *
+     * @return List
+     */
     private List<String[]> getStrippedCorpus(List<String[]> taggedCorpus) {
         List<String[]> untaggedTestSent = new ArrayList<String[]>();
         for (String[] sentence : taggedCorpus) {
@@ -350,6 +466,14 @@ public class Model implements Serializable {
         return untaggedTestSent;
     }
 
+    /**
+     * This method splits the word-tag string into its separate
+     * entities.
+     *
+     * @param element
+     *
+     * @return String[]
+     */
     private String[] splitElement(String element) {
         int index = element.lastIndexOf(separator);
         String word = element.substring(0, index);
@@ -357,6 +481,8 @@ public class Model implements Serializable {
         String[] splitString = new String[]{word, tag};
         return splitString;
     }
+
+    /*** Counters and Incrementers ***/
 
     private int countWord(String word) {
         Integer wordCount = wordFreq.get(word);
@@ -386,19 +512,12 @@ public class Model implements Serializable {
         table.put(key, value);
     }
 
-    private String getHashMapInString(String mapName, HashMap<String, ? extends Object> map) {
-        int i = 0;
-        String result = mapName + equate;
-        for (Map.Entry<String, ? extends Object> entry : map.entrySet()) {
-            result += entry.getKey() + keyValueSeparator + entry.getValue();
-            i += 1;
-            if (i != map.size()) {
-                result += entrySeparator;
-            }
-        }
-        return result;
+    private void initConstants() {
+        startTag = "<s>";
+        separator = "/";
     }
 
+    /*** Serializable Methods ***/
     private void writeObject(ObjectOutputStream serializer) throws IOException {
         serializer.writeObject(smoothingMode);
         serializer.writeObject(wordFreq);
@@ -423,14 +542,5 @@ public class Model implements Serializable {
         uniqueWords = (List<String>) deserializer.readObject();
         uniqueTags = (List<String>) deserializer.readObject();
         initConstants();
-    }
-
-    private void initConstants() {
-        startTag = "<s>";
-        equate = "====";
-        separator = "/";
-        entrySeparator = "@@@@";
-        keyValueSeparator = "::::";
-        segmentSeparator = "\n\n\n\n";
     }
 }
